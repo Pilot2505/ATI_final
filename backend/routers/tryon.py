@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from utils.base64_helpers import array_buffer_to_base64
+from utils.db_client import supabase
 from dotenv import load_dotenv
 import os
 from google import genai
@@ -27,7 +28,7 @@ async def try_on(
     background_color: str = Form(...),
     foreground_color: str = Form(...),
     instructions: str = Form(""),
-   
+    session_id: str = Form(...)
 ):
     try:
         
@@ -132,16 +133,42 @@ async def try_on(
             print("No candidates found in the API response.")
 
         image_url = None
+        generated_image_base64 = None
         if image_data:
-            image_base64 = base64.b64encode(image_data).decode("utf-8")
-            image_url = f"data:{image_mime_type};base64,{image_base64}"
+            generated_image_base64 = base64.b64encode(image_data).decode("utf-8")
+            image_url = f"data:{image_mime_type};base64,{generated_image_base64}"
         else:
             image_url = None
-    
+
+        design_id = None
+        if generated_image_base64:
+            try:
+                design_record = supabase.table("room_designs").insert({
+                    "session_id": session_id,
+                    "generated_image_data": generated_image_base64,
+                    "design_metadata": {
+                        "design_type": design_type,
+                        "room_type": room_type,
+                        "style": style,
+                        "background_color": background_color,
+                        "foreground_color": foreground_color,
+                        "instructions": instructions
+                    },
+                    "description": text_response
+                }).execute()
+
+                if design_record.data and len(design_record.data) > 0:
+                    design_id = design_record.data[0].get("id")
+                    print(f"Design saved to database with ID: {design_id}")
+            except Exception as db_error:
+                print(f"Failed to save design to database: {db_error}")
+                traceback.print_exc()
+
         return JSONResponse(
         content={
             "image": image_url,
             "text": text_response,
+            "design_id": design_id
         }
         )
 

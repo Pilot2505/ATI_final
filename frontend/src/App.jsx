@@ -14,11 +14,13 @@ import {
   Row,
   Col,
   Divider,
+  Tabs,
 } from "antd";
 import { BulbFilled, BulbOutlined } from "@ant-design/icons";
 import ImageUpload from "./components/ImageUpload";
 import MarkdownCard from "./components/MarkdownCard";
 import ReactMarkdown from "react-markdown";
+import FurniturePlacement from "./FurniturePlacement";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -37,6 +39,10 @@ function App() {
     const saved = localStorage.getItem("darkMode");
     return saved ? JSON.parse(saved) : false;
   });
+  const [sessionId, setSessionId] = useState(() => {
+    const saved = localStorage.getItem("sessionId");
+    return saved || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  });
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -46,6 +52,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(isDarkMode));
   }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem("sessionId", sessionId);
+  }, [sessionId]);
 
   useEffect(() => {
     if (result && resultRef.current) {
@@ -69,6 +79,7 @@ function App() {
     formData.append("room_type", roomType);
     formData.append("style", style);
     formData.append("instructions", instructions);
+    formData.append("session_id", sessionId);
 
     try {
      const response = await axios.post("http://127.0.0.1:8000/api/try-on", formData, {
@@ -132,12 +143,21 @@ return (
 
       <Content style={{ padding: "2rem 1rem" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
-          <Title level={2} style={{ color: textColor, textAlign: "center", marginBottom: "2rem" }}>
-            AI Interior / Exterior Makeover
-          </Title>
+          <Tabs
+            defaultActiveKey="1"
+            centered
+            size="large"
+            items={[
+              {
+                key: "1",
+                label: "Generate Room Design",
+                children: (
+                  <>
+                    <Title level={2} style={{ color: textColor, textAlign: "center", marginBottom: "2rem" }}>
+                      AI Interior / Exterior Makeover
+                    </Title>
 
-          {/* FORM */}
-          <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit}>
             <Row gutter={[24, 24]} justify="center" style={{ flexWrap: "wrap" }}>
               <Col xs={24} sm={24} md={24} lg={12}>
                 <ImageUpload
@@ -338,6 +358,18 @@ return (
               </Row>
             </div>
           )}
+                  </>
+                ),
+              },
+              {
+                key: "2",
+                label: "Place Furniture",
+                children: (
+                  <FurniturePlacement sessionId={sessionId} isDarkMode={isDarkMode} />
+                ),
+              },
+            ]}
+          />
         </div>
       </Content>
 
