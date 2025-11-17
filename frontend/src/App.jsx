@@ -17,7 +17,6 @@ import {
 } from "antd";
 import { BulbFilled, BulbOutlined } from "@ant-design/icons";
 import ImageUpload from "./components/ImageUpload";
-import Footer from "./components/Footer";
 import MarkdownCard from "./components/MarkdownCard";
 import ReactMarkdown from "react-markdown";
 
@@ -342,7 +341,6 @@ return (
         </div>
       </Content>
 
-      <Footer isDarkMode={isDarkMode} />
       <ToastContainer theme={isDarkMode ? "dark" : "light"} />
     </Layout>
   </ConfigProvider>
