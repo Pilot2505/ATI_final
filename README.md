@@ -130,8 +130,3 @@ This work is licensed under a
 This project showcases how **multimodal AI** can revolutionize interior design — enabling users to envision complete transformations of their living spaces, instantly and photorealistically.
 
 ---
-
-## 🙋‍♂️ Author
-
-**Narender Keswani**  
-🔗 [GitHub](https://github.com/narender-rk10) • 💼 [LinkedIn](https://linkedin.com/in/narender-keswani) • 🌐 [Website](https://www.narenderkeswani.com)

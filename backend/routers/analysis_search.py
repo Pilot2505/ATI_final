@@ -28,7 +28,7 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 def array_buffer_to_base64(data: bytes) -> str:
     return base64.b64encode(data).decode('utf-8')
 
-## ĐỊNH NGHĨA HÀM TÌM KIẾM SERPAPI (Đã giới hạn num=3)
+## ĐỊNH NGHĨA HÀM TÌM KIẾM SERPAPI
 def search_products(query: str):
     """Tìm kiếm sản phẩm trên Google Shopping bằng SerpAPI, giới hạn 3 kết quả."""
     try:
@@ -39,16 +39,19 @@ def search_products(query: str):
             "location": "Vietnam",  
             "hl": "vi",
             "gl": "vn",
-            "num": 3  # <-- Đã giới hạn chỉ 3 kết quả mỗi món đồ
+            "num": 3
         })
         results = search.get_dict()
         
         product_links = []
         if "shopping_results" in results:
             for item in results["shopping_results"]:
+                # ✅ ĐÃ SỬA: Ưu tiên lấy link trực tiếp (product_link) nếu có, nếu không thì lấy link Google (link)
+                final_link = item.get("product_link") or item.get("link")
+                
                 product_links.append({
                     "title": item.get("title"),
-                    "link": item.get("link"),
+                    "link": final_link, 
                     "price": item.get("price"),
                     "source": item.get("source"),
                     "thumbnail": item.get("thumbnail")
@@ -78,15 +81,20 @@ async def analyze_and_search(
         
         image_b64 = array_buffer_to_base64(image_bytes)
         
-        # --- 2. Prompt Gemini ĐÃ TỐI ƯU HÓA ĐỘ GIỐNG ---
+        # --- 2. Prompt Gemini ---
         prompt = """
         Analyze the uploaded room image. Identify the 3 to 5 most significant pieces of furniture (e.g., bed, sofa, coffee table, prominent chair, large lamp) that define the room's style. 
 
-        For each item identified, generate a *highly specific search query* (in English, optimized for Google Shopping) that would return products that are the *closest visual match* to the item in the image. Include material, style, color, and key design features in the query to ensure maximum similarity.
+        For each item identified, generate a search query (in English, optimized for Google Shopping) that balances visual accuracy with high search likelihood. The goal is to generate queries that are easily searchable and likely to return similar, available products, rather than extremely narrow exact matches.
+
+        Query Guidelines:
+        1. Focus on the core identity: [Product Type] + [Dominant Style] + [Primary Color or Material].
+        2. Avoid overly specific, jargon-heavy descriptions that sellers rarely use. (e.g., Use "Walnut Sideboard" instead of "Mid-Century Modern Walnut Credenza with brass inlay").
+        3. The query must be general enough to yield multiple relevant results.
 
         Your output must be a single JSON object (formatted as a string) with two keys:
-        1. "description": A brief description of the room's overall style and key features (e.g., "Bohemian style bedroom/living area with rattan accents").
-        2. "search_queries": A LIST of objects, where each object contains a descriptive name for the item and a highly specific search query.
+        1. "description": A brief description of the room's overall style and key features.
+        2. "search_queries": A LIST of objects, where each object contains a descriptive name for the item and the optimized search query.
         
         Return only the JSON string.
         """
@@ -99,12 +107,15 @@ async def analyze_and_search(
             )
         ]
         
+        # ✨ SỬA LỖI MODEL: Sử dụng model chính xác cho phân tích đa phương tiện
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=contents
         )
         
         # --- 3. Trích xuất NHIỀU TRUY VẤN ---
+        generated_queries = [] # Khởi tạo danh sách để lưu trữ truy vấn
+        
         if not response.text:
             raise HTTPException(status_code=500, detail="Gemini failed to generate a response.")
             
@@ -128,7 +139,12 @@ async def analyze_and_search(
             search_query = item.get("query")
             
             if search_query:
-                # Gọi hàm search_products đã giới hạn 3 kết quả
+                # Lưu trữ truy vấn đã sử dụng (cho hiển thị ở FE)
+                generated_queries.append({
+                    "item_name": query_name,
+                    "query": search_query
+                })
+                
                 product_results = search_products(search_query) 
                 
                 # Gắn tên món đồ vào từng kết quả để frontend nhóm lại
@@ -137,14 +153,16 @@ async def analyze_and_search(
                 
                 all_product_links.extend(product_results)
                 
-        # --- 5. Trả về kết quả (đã bao gồm ảnh gốc) ---
+        # --- 5. Trả về kết quả (Đã bao gồm generated_queries) ---
         return JSONResponse(content={
             "description": description,
             "product_links": all_product_links,
-            "image_data": f"data:{uploaded_image.content_type};base64,{image_b64}" # TRẢ VỀ ẢNH GỐC
+            "generated_queries": generated_queries, # <-- Đã thêm vào phản hồi
+            "image_data": f"data:{uploaded_image.content_type};base64,{image_b64}"
         })
 
     except Exception as e:
         print(f"Error in /analyze-and-search endpoint: {e}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        # Trả về lỗi 500 nếu có lỗi server, không phải lỗi Gemini/SerpAPI
+        raise HTTPException(status_code=500, detail="Internal Server Error") 

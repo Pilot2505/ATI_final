@@ -132,7 +132,7 @@ const SearchFurniture = ({ isDarkMode }) => {
                                     display: 'flex',
                                     flexDirection: 'column'
                                 }}
-                                styles={{body: {padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}}
+                                styles= {{body: { padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}}
                                 cover={
                                     <div style={{ 
                                         height: 200, 
@@ -191,7 +191,7 @@ const SearchFurniture = ({ isDarkMode }) => {
                                         fontWeight: 500 
                                     }}
                                 >
-                                    Xem chi tiết
+                                    See Details
                                 </Button>
                             </Card>
                         </Badge.Ribbon>
@@ -229,7 +229,7 @@ const SearchFurniture = ({ isDarkMode }) => {
                         >
                             {!uploadedImageUrl ? (
                                 <ImageUpload
-                                    label="Chọn ảnh từ máy của bạn"
+                                    label="Upload Furniture Image"
                                     onImageChange={handleImageChange}
                                     isDarkMode={isDarkMode}
                                 />
@@ -271,16 +271,16 @@ const SearchFurniture = ({ isDarkMode }) => {
                                     boxShadow: '0 4px 14px 0 rgba(24, 144, 255, 0.39)'
                                 }}
                             >
-                                {loading ? "Đang phân tích..." : "Tìm kiếm Nội thất"}
+                                {loading ? "Analyzing..." : "Search Furniture"}
                             </Button>
 
                             {searchResults && (
                                 <>
                                     <Divider style={{ margin: '24px 0' }} />
-                                    <Text strong style={{ color: theme.text }}>Mô tả phong cách:</Text>
+                                    <Text strong style={{ color: theme.text }}>Style Description:</Text>
                                     <Paragraph 
                                         style={{ color: theme.subText, marginTop: 8, fontSize: '0.95rem', fontStyle: 'italic' }}
-                                        ellipsis={{ rows: 3, expandable: true, symbol: 'xem thêm' }}
+                                        ellipsis={{ rows: 3, expandable: true, symbol: 'see more' }}
                                     >
                                         "{searchResults.description}"
                                     </Paragraph>
@@ -295,7 +295,7 @@ const SearchFurniture = ({ isDarkMode }) => {
                 <Col xs={24} lg={16} xl={17}>
                     {loading ? (
                         <div style={{ textAlign: 'center', padding: '100px 0' }}>
-                            <Spin size="large" tip="AI đang quét các sàn thương mại..." />
+                            <Spin size="large" tip="AI is scanning marketplaces..." />
                         </div>
                     ) : (
                         searchResults ? (
@@ -323,7 +323,7 @@ const SearchFurniture = ({ isDarkMode }) => {
                                 )}
                             </div>
                         ) : (
-                            // Empty State (Màn hình chờ)
+                            // Empty State (Waiting Screen)
                             <div style={{ 
                                 height: '100%', 
                                 display: 'flex', 
