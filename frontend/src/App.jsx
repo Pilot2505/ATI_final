@@ -365,7 +365,7 @@ return (
                 key: "2",
                 label: "Place Furniture",
                 children: (
-                  <FurniturePlacement sessionId={sessionId} isDarkMode={isDarkMode} />
+                  <FurniturePlacement isDarkMode={isDarkMode} />
                 ),
               },
             ]}
