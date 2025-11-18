@@ -1,25 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import axios from 'axios';
-import { Button, Typography, Row, Col, Card, Spin, Image, Divider } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { 
+  Button, Typography, Row, Col, Card, Spin, 
+  Image, Divider, Pagination, Tag, Empty, Badge 
+} from 'antd';
+import { 
+  SearchOutlined, ShoppingCartOutlined, 
+  GlobalOutlined, TagOutlined 
+} from '@ant-design/icons';
 import { toast } from 'react-toastify';
 import ImageUpload from './components/ImageUpload'; 
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const SearchFurniture = ({ isDarkMode }) => {
+    // --- STATE ---
     const [uploadedImage, setUploadedImage] = useState(null); 
     const [uploadedImageUrl, setUploadedImageUrl] = useState(null); 
     const [loading, setLoading] = useState(false);
     const [searchResults, setSearchResults] = useState(null);
     
-    const textColor = isDarkMode ? "#e4e4e4" : "#111827";
-    const cardBg = isDarkMode ? "#1f1f1f" : "#ffffff";
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10; // Yêu cầu: 10 sản phẩm mỗi trang
 
+    // --- THEME COLORS ---
+    const theme = {
+        text: isDarkMode ? "#e4e4e4" : "#2c3e50",
+        subText: isDarkMode ? "#a1a1aa" : "#7f8c8d",
+        bg: isDarkMode ? "#141414" : "#f8f9fa", // Màu nền tổng thể nhẹ nhàng hơn
+        cardBg: isDarkMode ? "#1f1f1f" : "#ffffff",
+        accent: "#1890ff",
+        shadow: isDarkMode ? "0 4px 12px rgba(0,0,0,0.5)" : "0 4px 12px rgba(0,0,0,0.05)",
+    };
+
+    // --- HANDLERS ---
     const handleImageChange = (file, url) => {
         setUploadedImage(file);
         setUploadedImageUrl(url); 
         setSearchResults(null);
+        setCurrentPage(1); // Reset về trang 1 khi chọn ảnh mới
     };
 
     const handleSearch = async () => {
@@ -30,199 +50,298 @@ const SearchFurniture = ({ isDarkMode }) => {
 
         setLoading(true);
         setSearchResults(null);
+        setCurrentPage(1);
         
         const formData = new FormData();
         formData.append("uploaded_image", uploadedImage);
 
         try {
             const response = await axios.post("http://127.0.0.1:8000/api/analyze-and-search", formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
+                headers: { "Content-Type": "multipart/form-data" },
             });
-
-            // Backend trả về 'description', 'product_links', và 'generated_queries'
             setSearchResults(response.data);
-            toast.success("Phân tích và tìm kiếm sản phẩm hoàn tất!");
-
+            toast.success("Tìm kiếm hoàn tất!");
         } catch (error) {
-            console.error("Lỗi khi phân tích và tìm kiếm:", error);
-            setUploadedImageUrl(null); 
-            toast.error("Tìm kiếm thất bại. Vui lòng kiểm tra console.");
+            console.error("Lỗi:", error);
+            toast.error("Có lỗi xảy ra, vui lòng thử lại.");
         } finally {
             setLoading(false);
         }
     };
 
-    // --- HÀM RENDER CÁC TRUY VẤN ĐÃ TẠO ---
-    const renderGeneratedQueries = () => {
-        if (!searchResults || !searchResults.generated_queries || searchResults.generated_queries.length === 0) {
-            return <Text style={{ color: isDarkMode ? '#a1a1aa' : '#666' }}>Không có truy vấn nào được tạo.</Text>;
-        }
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        // Cuộn nhẹ lên đầu danh sách sản phẩm khi chuyển trang
+        const element = document.getElementById('results-anchor');
+        if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
+    // --- LOGIC PHÂN TRANG ---
+    // Tính toán danh sách sản phẩm cho trang hiện tại
+    const currentData = useMemo(() => {
+        if (!searchResults || !searchResults.product_links) return [];
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        return searchResults.product_links.slice(start, end);
+    }, [searchResults, currentPage]);
+
+    const totalProducts = searchResults?.product_links?.length || 0;
+
+    // --- RENDER COMPONENTS ---
+
+    // 1. Hiển thị các từ khóa AI đã dùng
+    const renderKeywords = () => {
+        if (!searchResults?.generated_queries) return null;
         return (
-            <div style={{ marginTop: 10 }}>
-                <Text strong style={{ color: textColor, display: 'block' }}>Truy vấn AI đã sử dụng:</Text>
-                {searchResults.generated_queries.map((item, index) => (
-                    <Text 
-                        key={index} 
-                        code 
-                        style={{ display: 'block', color: textColor, fontSize: '0.9em', margin: '5px 0' }}
-                    >
-                        {item.item_name || item.name}: "{item.query}"
-                    </Text>
-                ))}
+            <div style={{ marginTop: 16 }}>
+                <Text strong style={{ color: theme.text, display: 'block', marginBottom: 8 }}>
+                    <TagOutlined /> AI đã tìm kiếm:
+                </Text>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {searchResults.generated_queries.map((item, index) => (
+                        <Tag key={index} color={isDarkMode ? "geekblue" : "blue"} style={{ margin: 0 }}>
+                            {item.item_name || item.name}
+                        </Tag>
+                    ))}
+                </div>
             </div>
         );
     };
 
+    // 2. Render danh sách sản phẩm dạng Grid (Lưới)
+    const renderProductGrid = () => {
+        if (currentData.length === 0) return <Empty description="Không tìm thấy sản phẩm nào" />;
 
-    // --- HÀM NHÓM VÀ RENDER SẢN PHẨM (ĐÃ CÓ KHOẢNG CÁCH 24PX) ---
-    const renderGroupedProducts = () => {
-        if (!searchResults || !searchResults.product_links) return null;
-
-        const grouped = searchResults.product_links.reduce((acc, product) => {
-            const key = product.item_name || "Sản phẩm Khác";
-            if (!acc[key]) {
-                acc[key] = [];
-            }
-            acc[key].push(product);
-            return acc;
-        }, {});
-
-        // 2. Hiển thị từng nhóm
-        return Object.entries(grouped).map(([itemName, products]) => (
-            <div key={itemName} style={{ marginBottom: 30 }}>
-                {/* Tiêu đề cho nhóm món đồ */}
-                <Title level={4} style={{ color: textColor, marginTop: 0, paddingBottom: 5, fontSize: '1.2em' }}>
-                    {itemName}
-                </Title>
-                
-                <Row gutter={[16, 16]}>
-                    {products.map((product, index) => (
-                        <Col xs={24} key={index}>
-                            <Card 
-                                style={{ background: cardBg, borderColor: isDarkMode ? '#303030' : '#f0f0f0' }}
-                                styles={{ header: { padding: 12, display: 'flex' } }}
+        return (
+            <Row gutter={[24, 24]} id="results-anchor">
+                {currentData.map((product, index) => (
+                    <Col xs={24} sm={12} md={12} lg={12} xl={6} key={index}>
+                        <Badge.Ribbon 
+                            text={product.item_name} 
+                            color="cyan"
+                            style={{ fontSize: 12, top: 10 }}
+                        >
+                            <Card
+                                hoverable
+                                style={{ 
+                                    height: '100%', 
+                                    background: theme.cardBg, 
+                                    borderColor: isDarkMode ? '#303030' : '#f0f0f0',
+                                    borderRadius: 12,
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                                styles={{body: {padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}}
+                                cover={
+                                    <div style={{ 
+                                        height: 200, 
+                                        display: 'flex', 
+                                        justifyContent: 'center', 
+                                        alignItems: 'center',
+                                        background: isDarkMode ? '#1a1a1a' : '#fff',
+                                        padding: 10
+                                    }}>
+                                        <img 
+                                            alt={product.title} 
+                                            src={product.thumbnail} 
+                                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                                        />
+                                    </div>
+                                }
                             >
-                                <Image
-                                    src={product.thumbnail}
-                                    alt={product.title}
-                                    width={70}
-                                    preview={false}
-                                    // ✅ ĐÃ SỬA: Thiết lập marginRight: 24 để tăng khoảng cách rõ rệt
-                                    style={{ objectFit: 'contain', borderRadius: 4, marginRight: 30 }} 
-                                />
-                                <div style={{ flexGrow: 1 }}>
-                                    <Text strong style={{ color: textColor, display: 'block' }}>{product.title}</Text>
-                                    <Text style={{ display: 'block', color: '#1677ff', fontWeight: 'bold' }}>{product.price}</Text>
-                                    <Text style={{ display: 'block', color: isDarkMode ? '#a1a1aa' : '#666', fontSize: '0.9em' }}>{product.source}</Text>
-                                    <Button 
-                                        type="link" 
-                                        href={product.link}
-                                        // ✅ ĐÃ SỬA: Đảm bảo mở link trong tab mới
-                                        target="_blank" 
-                                        size="small" 
-                                        style={{ paddingLeft: 0, marginTop: 4 }}
+                                <div style={{ flex: 1 }}>
+                                    <Text 
+                                        strong 
+                                        style={{ 
+                                            color: theme.text, 
+                                            fontSize: '1rem',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            marginBottom: 8,
+                                            minHeight: 44
+                                        }}
+                                        title={product.title}
                                     >
-                                        Xem sản phẩm
-                                    </Button>
+                                        {product.title}
+                                    </Text>
+                                    
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text style={{ color: '#e74c3c', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                            {product.price}
+                                        </Text>
+                                        <Text type="secondary" style={{ fontSize: '0.8rem' }}>
+                                            <GlobalOutlined /> {product.source}
+                                        </Text>
+                                    </div>
                                 </div>
+
+                                <Button 
+                                    type="primary" 
+                                    block 
+                                    icon={<ShoppingCartOutlined />}
+                                    href={product.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ 
+                                        marginTop: 'auto', 
+                                        borderRadius: 6, 
+                                        fontWeight: 500 
+                                    }}
+                                >
+                                    Xem chi tiết
+                                </Button>
                             </Card>
-                        </Col>
-                    ))}
-                </Row>
-            </div>
-        ));
+                        </Badge.Ribbon>
+                    </Col>
+                ))}
+            </Row>
+        );
     };
 
     return (
-        <>
-            <Title 
-                level={2} 
-                style={{ color: textColor, textAlign: "center", marginBottom: "2rem" }}
-            >
-                Image-based Furniture Search
-            </Title>
+        <div style={{ background: theme.bg, minHeight: '100vh', padding: '40px 20px' }}>
             
-            <Row gutter={[32, 32]} justify="center" style={{ marginTop: '2rem' }}>
-                
-                {/* Cột Trái: Ảnh đã Upload và Mô tả tổng quan */}
-                <Col xs={24} lg={10}>
-                    <Title level={4} style={{ color: textColor, marginBottom: 16 }}>Phòng đã phân tích:</Title>
-                    
-                    <Card 
-                        style={{ background: cardBg, borderColor: isDarkMode ? '#303030' : '#f0f0f0' }}
-                        styles={{body: { padding: 16 }}}
-                    >
-                        {uploadedImageUrl && searchResults ? (
-                            // HIỂN THỊ KẾT QUẢ ĐÃ PHÂN TÍCH (ẢNH GỐC & MÔ TẢ AI)
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <img
-                                    src={uploadedImageUrl}
-                                    alt="Uploaded Furniture"
-                                    style={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 8 }}
-                                />
-                                
-                                <Text strong style={{ color: textColor, display: 'block', marginTop: 10 }}>Mô tả AI:</Text>
-                                <Text style={{ color: textColor }}>{searchResults.description}</Text>
-                                
-                                <Divider />
+            {/* --- HEADER --- */}
+            <div style={{ textAlign: 'center', marginBottom: 50 }}>
+                <Title level={2} style={{ color: theme.text, fontWeight: 300, letterSpacing: 1 }}>
+                    AI Furniture Finder
+                </Title>
+                <Text style={{ color: theme.subText }}>
+                    Tải lên ảnh phòng của bạn, chúng tôi sẽ tìm nội thất tương tự
+                </Text>
+            </div>
 
-                                {/* GỌI HÀM HIỂN THỊ TRUY VẤN MỚI */}
-                                {renderGeneratedQueries()} 
-                                
-                                <Text style={{ fontSize: 12, color: isDarkMode ? '#a1a1aa' : '#666', marginTop: 10 }}>File: {uploadedImage?.name || '---'}</Text>
-                            </div>
-                        ) : (
-                            // FORM UPLOAD BAN ĐẦU
-                            <>
+            <Row gutter={[40, 40]} justify="center">
+                
+                {/* --- LEFT COLUMN: INPUT & ANALYSIS --- */}
+                <Col xs={24} lg={8} xl={6}>
+                    <div style={{ position: 'sticky', top: 20 }}>
+                        <Card 
+                            style={{ 
+                                background: theme.cardBg, 
+                                borderRadius: 16, 
+                                boxShadow: theme.shadow, 
+                                border: 'none' 
+                            }}
+                        >
+                            {!uploadedImageUrl ? (
                                 <ImageUpload
-                                    label="Tải lên ảnh Vật phẩm hoặc Phòng"
+                                    label="Chọn ảnh từ máy của bạn"
                                     onImageChange={handleImageChange}
                                     isDarkMode={isDarkMode}
                                 />
-                                <Button
-                                    type="primary"
-                                    size="large"
-                                    icon={<SearchOutlined />}
-                                    loading={loading}
-                                    onClick={handleSearch}
-                                    style={{ width: '100%', marginTop: '1rem', height: 48 }}
-                                    disabled={!uploadedImage}
-                                >
-                                    {loading ? "Đang phân tích..." : "Phân tích và Tìm kiếm"}
-                                </Button>
-                            </>
-                        )}
-                        
-                    </Card>
+                            ) : (
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, marginBottom: 16 }}>
+                                        <Image
+                                            src={uploadedImageUrl}
+                                            alt="Uploaded Room"
+                                            width="100%"
+                                            style={{ objectFit: 'cover' }}
+                                        />
+                                    </div>
+                                    
+                                    <Button 
+                                        onClick={() => { setUploadedImage(null); setUploadedImageUrl(null); setSearchResults(null); }}
+                                        type="text" danger
+                                        size="small"
+                                    >
+                                        Chọn ảnh khác
+                                    </Button>
+                                </div>
+                            )}
+
+                            <Button
+                                type="primary"
+                                size="large"
+                                icon={<SearchOutlined />}
+                                loading={loading}
+                                onClick={handleSearch}
+                                disabled={!uploadedImage}
+                                style={{ 
+                                    width: '100%', 
+                                    marginTop: 20, 
+                                    height: 48, 
+                                    borderRadius: 8,
+                                    fontSize: '1rem',
+                                    fontWeight: 600,
+                                    boxShadow: '0 4px 14px 0 rgba(24, 144, 255, 0.39)'
+                                }}
+                            >
+                                {loading ? "Đang phân tích..." : "Tìm kiếm Nội thất"}
+                            </Button>
+
+                            {searchResults && (
+                                <>
+                                    <Divider style={{ margin: '24px 0' }} />
+                                    <Text strong style={{ color: theme.text }}>Mô tả phong cách:</Text>
+                                    <Paragraph 
+                                        style={{ color: theme.subText, marginTop: 8, fontSize: '0.95rem', fontStyle: 'italic' }}
+                                        ellipsis={{ rows: 3, expandable: true, symbol: 'xem thêm' }}
+                                    >
+                                        "{searchResults.description}"
+                                    </Paragraph>
+                                    {renderKeywords()}
+                                </>
+                            )}
+                        </Card>
+                    </div>
                 </Col>
 
-                {/* Cột Phải: Danh sách Sản phẩm ĐÃ NHÓM */}
-                <Col xs={24} lg={14}>
-                    <Title level={4} style={{ color: textColor, marginBottom: 16 }}>Các sản phẩm tìm thấy</Title>
-                    
-                    <Card 
-                        style={{ background: cardBg, minHeight: 300, borderColor: isDarkMode ? '#303030' : '#f0f0f0' }}
-                        bodyStyle={{ padding: 16 }}
-                    >
-                        {loading && <div style={{ textAlign: 'center', padding: '50px 0' }}><Spin size="large" /></div>}
-                        
-                        {searchResults && searchResults.product_links && searchResults.product_links.length > 0 ? (
-                            renderGroupedProducts()
-                        ) : (
-                            searchResults && !loading && (
-                                <Text style={{ color: textColor }}>
-                                    Không tìm thấy sản phẩm nào. Vui lòng kiểm tra "Truy vấn AI đã sử dụng" ở bên trái để biết các truy vấn đã được thực hiện.
-                                </Text>
-                            )
-                        )}
+                {/* --- RIGHT COLUMN: RESULTS --- */}
+                <Col xs={24} lg={16} xl={17}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '100px 0' }}>
+                            <Spin size="large" tip="AI đang quét các sàn thương mại..." />
+                        </div>
+                    ) : (
+                        searchResults ? (
+                            <div style={{ minHeight: 500 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                    <Title level={4} style={{ color: theme.text, margin: 0 }}>
+                                        Kết quả tìm kiếm ({totalProducts})
+                                    </Title>
+                                </div>
 
-                    </Card>
+                                {renderProductGrid()}
+
+                                {/* --- PAGINATION --- */}
+                                {totalProducts > pageSize && (
+                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40 }}>
+                                        <Pagination
+                                            current={currentPage}
+                                            total={totalProducts}
+                                            pageSize={pageSize}
+                                            onChange={handlePageChange}
+                                            showSizeChanger={false}
+                                            theme={isDarkMode ? 'dark' : 'light'}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            // Empty State (Màn hình chờ)
+                            <div style={{ 
+                                height: '100%', 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                alignItems: 'center',
+                                color: theme.subText,
+                                flexDirection: 'column',
+                                opacity: 0.6,
+                                minHeight: 400
+                            }}>
+                                <SearchOutlined style={{ fontSize: 64, marginBottom: 16 }} />
+                                <Text style={{ fontSize: 16, color: 'inherit' }}>Kết quả tìm kiếm sẽ hiển thị ở đây</Text>
+                            </div>
+                        )
+                    )}
                 </Col>
             </Row>
-        </>
+        </div>
     );
 };
 
