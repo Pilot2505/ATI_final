@@ -14,10 +14,10 @@ load_dotenv()
 router = APIRouter()
 
 # --- Cài đặt Khóa API ---
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = "AIzaSyD-BGEP65uaxmcBx0j_DPNya5qNnJM-UV4"
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY") 
 if not GEMINI_API_KEY:
-    raise ValueError("Missing GEMINI_API_KEY in .env")
+    raise ValueError("Missing GEMINI_API_KEY")
 if not SERPAPI_API_KEY:
     raise ValueError("Missing SERPAPI_API_KEY in .env")
 
