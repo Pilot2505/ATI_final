@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import tryon, furniture_placement, furniture_library
+from routers import tryon, furniture_placement, furniture_library, analysis_search
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -16,3 +16,4 @@ app.add_middleware(
 app.include_router(tryon.router, prefix="/api")
 app.include_router(furniture_placement.router, prefix="/api")
 app.include_router(furniture_library.router, prefix="/api")
+app.include_router(analysis_search.router, prefix="/api")

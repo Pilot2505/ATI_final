@@ -13,7 +13,8 @@ dependencies = [
     "fastapi (>=0.115.12,<0.116.0)",
     "uvicorn (>=0.34.2,<0.35.0)",
     "python-dotenv (>=1.1.0,<2.0.0)",
-    "supabase (>=2.10.0,<3.0.0)"
+    "supabase (>=2.10.0,<3.0.0)",
+    "google-search-results (>=2.4.2,<3.0.0)",
 ]
 
 

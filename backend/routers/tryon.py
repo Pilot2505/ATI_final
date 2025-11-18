@@ -98,7 +98,7 @@ async def try_on(
         ]        
         
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp-image-generation",
+            model="gemini-2.5-flash-image",
             contents=contents,
             config=types.GenerateContentConfig(
             response_modalities=['TEXT', 'IMAGE']

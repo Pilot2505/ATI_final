@@ -31,6 +31,7 @@ function FurniturePlacement({ isDarkMode }) {
   const [loadingDesigns, setLoadingDesigns] = useState(false);
   const [result, setResult] = useState(null);
   const [library, setLibrary] = useState([]);
+  const [selectedLibraryFurniture, setSelectedLibraryFurniture] = useState(null);
 
   const textColor = isDarkMode ? "#e4e4e4" : "#111827";
   const bgColor = isDarkMode ? "#1f1f1f" : "#ffffff";
@@ -87,9 +88,9 @@ function FurniturePlacement({ isDarkMode }) {
       return;
     }
 
-    setPendingUploadFile(file); // store for uploading later
-    setFurniturePreview(URL.createObjectURL(file)); // preview only
-    setFurnitureImage(null); // clear previous selection
+    setPendingUploadFile(file);        // mark as pending upload
+    setSelectedLibraryFurniture(null);  // clear any library selection
+    setFurniturePreview(URL.createObjectURL(file));
   };
 
   const handleUploadToLibrary = async () => {
@@ -132,6 +133,11 @@ function FurniturePlacement({ isDarkMode }) {
   };
 
 
+  const handleLibrarySelect = (item) => {
+    setSelectedLibraryFurniture(item); // mark library selection
+    setPendingUploadFile(null);        // clear pending upload
+    setFurniturePreview(null);
+  };
 
 
   const handlePlaceFurniture = async (e) => {
@@ -142,8 +148,8 @@ function FurniturePlacement({ isDarkMode }) {
       return;
     }
 
-    if (!furnitureImage) {
-      toast.error("Please upload a furniture image");
+    if (!furnitureImage && !selectedLibraryFurniture) {
+      toast.error("Please upload or select a furniture image");
       return;
     }
 
@@ -151,12 +157,14 @@ function FurniturePlacement({ isDarkMode }) {
     const formData = new FormData();
     formData.append("design_id", selectedDesignId);
     formData.append("session_id", "furniture-test");
-    if (furnitureImage?.id) {
-      formData.append("furniture_id", furnitureImage.id);
-    } else {
-      formData.append("furniture_image", furnitureImage);
+
+    if (selectedLibraryFurniture) {
+      formData.append("furniture_ids", selectedLibraryFurniture.id);
+    } else if (pendingUploadFile) {
+      formData.append("furniture_images", pendingUploadFile);
     }
-    formData.append("furniture_description", furnitureDescription);
+
+    formData.append("furniture_descriptions", furnitureDescription);
 
     try {
       const response = await axios.post(
@@ -303,9 +311,9 @@ function FurniturePlacement({ isDarkMode }) {
                       <Col xs={12} md={6} key={item.id}>
                         <Card
                           hoverable
-                          onClick={() => {
-                            setFurniturePreview(item.image);
-                            setFurnitureImage(item); // Use library item instead of file object
+                          onClick={() => handleLibrarySelect(item)}
+                          style={{
+                            border: selectedLibraryFurniture?.id === item.id ? "2px solid blue" : "1px solid gray",
                           }}
                           extra={
                             <Button
@@ -317,7 +325,7 @@ function FurniturePlacement({ isDarkMode }) {
                                   await axios.delete(`http://127.0.0.1:8000/api/furniture/${item.id}`);
                                   toast.success("Furniture deleted");
                                   fetchLibrary();
-                                  if (furnitureImage?.id === item.id) handleClearFurniture();
+                                  if (selectedLibraryFurniture?.id === item.id) handleClearFurniture();
                                 } catch (err) {
                                   toast.error("Failed to delete furniture");
                                 }
@@ -414,7 +422,7 @@ function FurniturePlacement({ isDarkMode }) {
                 size="large"
                 loading={loading}
                 style={{ width: 200, height: 48 }}
-                disabled={!furnitureImage}
+                disabled={!furnitureImage && !selectedLibraryFurniture}
               >
                 {loading ? "Placing..." : "Place Furniture"}
               </Button>

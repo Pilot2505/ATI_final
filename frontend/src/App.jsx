@@ -21,6 +21,7 @@ import ImageUpload from "./components/ImageUpload";
 import MarkdownCard from "./components/MarkdownCard";
 import ReactMarkdown from "react-markdown";
 import FurniturePlacement from "./FurniturePlacement";
+import SearchFurniture from './SearchFurniture';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -331,19 +332,19 @@ return (
                         }}
                       />
                       <ReactMarkdown
-  children={item.text}
-  style={{
-    maxWidth: "680px",
-    margin: "0 auto",
-    padding: "1rem",
-    background: isDarkMode ? "#1f1f1f" : "#f1f5f9",
-    borderRadius: 12,
-    overflowY: "auto",
-    maxHeight: "400px",
-    color: textColor,
-    lineHeight: 1.6,
-  }}
-/>
+                        children={item.text}
+                        style={{
+                          maxWidth: "680px",
+                          margin: "0 auto",
+                          padding: "1rem",
+                          background: isDarkMode ? "#1f1f1f" : "#f1f5f9",
+                          borderRadius: 12,
+                          overflowY: "auto",
+                          maxHeight: "400px",
+                          color: textColor,
+                          lineHeight: 1.6,
+                        }}
+                      />
                       <Text
                         style={{
                           color: isDarkMode ? "#a1a1aa" : "#666",
@@ -367,6 +368,11 @@ return (
                 children: (
                   <FurniturePlacement isDarkMode={isDarkMode} />
                 ),
+              },
+              {
+                key: "3",
+                label: "Search Furniture",
+                children: <SearchFurniture isDarkMode={isDarkMode} />
               },
             ]}
           />

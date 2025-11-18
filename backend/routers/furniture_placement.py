@@ -65,7 +65,7 @@ async def get_designs_by_session(session_id: str):
 @router.get("/design/{design_id}/image")
 async def get_design_image_by_id(design_id: str):
     try:
-        result = supabase.table("room_designs").select("generated_image_data").eq("id", design_id).maybeSingle().execute()
+        result = supabase.table("room_designs").select("generated_image_data").eq("id", design_id).maybe_single().execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Design not found")
@@ -87,7 +87,7 @@ async def get_design_image_by_id(design_id: str):
 @router.get("/designs/{session_id}/{design_id}/image")
 async def get_design_image(session_id: str, design_id: str):
     try:
-        result = supabase.table("room_designs").select("generated_image_data").eq("id", design_id).eq("session_id", session_id).maybeSingle().execute()
+        result = supabase.table("room_designs").select("generated_image_data").eq("id", design_id).eq("session_id", session_id).maybe_single().execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Design not found")
@@ -139,9 +139,9 @@ async def upload_furniture(
 async def place_furniture(
     session_id: str = Form(...),
     design_id: str = Form(None),
-    furniture_id: str = Form(None),
-    furniture_image: UploadFile = File(None),
-    furniture_description: str = Form("")
+    furniture_ids: str = Form(None),
+    furniture_images: list[UploadFile] = File([]),
+    furniture_descriptions: str = Form("")
 ):
     try:
         MAX_IMAGE_SIZE_MB = 10
@@ -153,26 +153,37 @@ async def place_furniture(
             "image/heif",
         }
 
-        if furniture_id:
-            # fetch from library
-            furniture_row = supabase.table("furnitures").select("image_base64, description") \
-                .eq("id", furniture_id).maybeSingle().execute()
-            if not furniture_row.data:
-                raise HTTPException(404, "Furniture not found in library")
-            furniture_b64 = furniture_row.data["image_base64"]
-            if not furniture_description:
-                furniture_description = furniture_row.data.get("description", "")
-        else:
-            # upload new furniture
-            if not furniture_image:
-                raise HTTPException(400, "Provide a furniture image or select from library")
-            if furniture_image.content_type not in ALLOWED_MIME_TYPES:
-                raise HTTPException(400, f"Unsupported file type: {furniture_image.content_type}")
-            furniture_bytes = await furniture_image.read()
-            size_in_mb = len(furniture_bytes) / (1024 * 1024)
-            if size_in_mb > MAX_IMAGE_SIZE_MB:
-                raise HTTPException(400, "Image exceeds 10MB size limit")
-            furniture_b64 = array_buffer_to_base64(furniture_bytes)
+        # --- Prepare furniture images ---
+        furniture_bytes_list = []
+        furniture_desc_list = []
+
+        # 1. From library
+        if furniture_ids:
+            ids = [fid.strip() for fid in furniture_ids.split(",")]
+            for fid in ids:
+                row = supabase.table("furnitures").select("image_base64, description") \
+                    .eq("id", fid).maybe_single().execute()
+                if not row or not row.data:
+                    continue  # skip invalid IDs
+                furniture_bytes_list.append(base64.b64decode(row.data["image_base64"]))
+                furniture_desc_list.append(row.data.get("description", "Furniture"))
+
+        # 2. From new uploads
+        if furniture_images:
+            for idx, img in enumerate(furniture_images):
+                if img.content_type not in ALLOWED_MIME_TYPES:
+                    raise HTTPException(400, f"Unsupported file type: {img.content_type}")
+                data = await img.read()
+                size_in_mb = len(data) / (1024*1024)
+                if size_in_mb > MAX_IMAGE_SIZE_MB:
+                    raise HTTPException(400, "Image exceeds 10MB size limit")
+                furniture_bytes_list.append(data)
+                # Use description if provided, else default
+                descs = furniture_descriptions.split(",") if furniture_descriptions else []
+                furniture_desc_list.append(descs[idx] if idx < len(descs) else "Furniture")
+
+        if not furniture_bytes_list:
+            raise HTTPException(400, "No furniture images provided")
 
         # === Get or generate room image ===
         room_image_bytes = None
@@ -181,17 +192,30 @@ async def place_furniture(
         if design_id:
             # fetch existing room
             room_row = supabase.table("room_designs") \
-                .select("generated_image_data, design_metadata") \
-                .eq("id", design_id).eq("session_id", session_id).maybeSingle().execute()
-            if not room_row.data:
-                raise HTTPException(404, "Room design not found")
-            room_base64 = room_row.data.get("generated_image_data")
-            room_metadata = room_row.data.get("design_metadata", {})
-            if not room_base64:
-                raise HTTPException(404, "Room image data not found")
-            room_image_bytes = base64.b64decode(room_base64)
+                .select("*") \
+                .eq("id", design_id).eq("session_id", session_id).maybe_single().execute()
+            
+            if row and row.data and row.data.get("generated_image_data"):
+                room_image_bytes = base64.b64decode(row.data["generated_image_data"])
+                room_metadata = row.data.get("design_metadata", {})
+            else:
+                # Fallback to empty room
+                prompt_empty_room = "Generate a neutral empty room with natural lighting for furniture placement"
+                response_empty = client.models.generate_content(
+                    model="gemini-2.5-flash-image",
+                    contents=[prompt_empty_room],
+                    config=types.GenerateContentConfig(response_modalities=["IMAGE"])
+                )
+                if response_empty.candidates and response_empty.candidates[0].content.parts:
+                    part = response_empty.candidates[0].content.parts[0]
+                    if hasattr(part, "inline_data") and part.inline_data:
+                        room_image_bytes = part.inline_data.data
+                        room_metadata = {"room_type": "empty", "style": "neutral", "design_type": "interior"}
+                if not room_image_bytes:
+                    raise HTTPException(500, "Failed to get room image")
+                
         else:
-            # generate default empty room
+            # No design_id: generate empty room
             prompt_empty_room = "Generate a neutral empty room with natural lighting for furniture placement"
             response_empty = client.models.generate_content(
                 model="gemini-2.5-flash-image",
@@ -199,50 +223,38 @@ async def place_furniture(
                 config=types.GenerateContentConfig(response_modalities=["IMAGE"])
             )
             if response_empty.candidates and response_empty.candidates[0].content.parts:
-                room_part = response_empty.candidates[0].content.parts[0]
-                if hasattr(room_part, "inline_data") and room_part.inline_data:
-                    room_image_bytes = room_part.inline_data.data
+                part = response_empty.candidates[0].content.parts[0]
+                if hasattr(part, "inline_data") and part.inline_data:
+                    room_image_bytes = part.inline_data.data
                     room_metadata = {"room_type": "empty", "style": "neutral", "design_type": "interior"}
-                else:
-                    raise HTTPException(500, "Failed to generate empty room image")
-            else:
-                raise HTTPException(500, "Failed to generate empty room image")
+            if not room_image_bytes:
+                raise HTTPException(500, "Failed to generate empty room")
 
+        # --- Prepare prompt for AI ---
+        furniture_details = "\n".join([f"{i+1}. Description: {d}" for i, d in enumerate(furniture_desc_list)])
         prompt = f"""
-        You are a professional AI interior designer specializing in furniture placement and room visualization.
+        You are a professional AI interior designer specializing in furniture placement.
 
-        You are given:
-        1. A room design image (the base room)
-        2. A furniture/object image that needs to be placed in the room
-
-        ### Room Context
+        Room context:
         - Room Type: {room_metadata.get('room_type', 'unknown')}
         - Style: {room_metadata.get('style', 'unknown')}
         - Design Type: {room_metadata.get('design_type', 'interior')}
 
-        ### Furniture/Object Details
-        - Description: {furniture_description if furniture_description else "Not provided"}
+        Furniture to place:
+        {furniture_details}
 
-        ### Task:
-        1. Analyze the room layout, perspective, lighting, and spatial dimensions
-        2. Identify the most appropriate location for the furniture/object
-        3. Scale the furniture appropriately to match the room's proportions
-        4. Adjust the furniture orientation and perspective to match the room's viewpoint
-        5. Ensure the furniture shadows and lighting match the room environment
-        6. Blend the furniture naturally into the scene with realistic placement
-        7. Maintain the room's existing design style and aesthetic
+        Task:
+        - Place all furniture naturally in the room with correct scale, perspective, shadows, and lighting.
+        - Maintain realism and aesthetic style.
 
-        ### Output:
-        - Generate a photo-realistic composite image showing the furniture placed naturally in the room
-        - Provide a brief description of where and how the furniture was placed, including any adjustments made for realism
-
-        Important: The furniture should look like it belongs in the space naturally, with correct perspective, scale, lighting, and shadows.
+        Output:
+        - A single composite image with all furniture placed.
+        - A short description of placement for each item.
         """
-        contents = [
-            prompt,
-            types.Part.from_bytes(data=room_image_bytes, mime_type="image/png"),
-            types.Part.from_bytes(data=furniture_b64, mime_type=furniture_image.content_type if furniture_image else "image/png")
-        ]
+
+        contents = [prompt, types.Part.from_bytes(data=room_image_bytes, mime_type="image/png")]
+        for fb in furniture_bytes_list:
+            contents.append(types.Part.from_bytes(data=fb, mime_type="image/png"))
 
         response = client.models.generate_content(
             model="gemini-2.5-flash-image",
