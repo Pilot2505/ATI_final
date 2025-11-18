@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
-from utils.base64_helpers import array_buffer_to_base64
 from utils.db_client import supabase
 from dotenv import load_dotenv
 import os
