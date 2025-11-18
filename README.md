@@ -43,8 +43,8 @@ Perfect for real estate visualization, interior decorators, home remodeling insp
 ### 1. Clone the Repo
 
 ```bash
-git clone https://github.com/narender-rk10/Gen-AI-Home-Interior-Designer.git
-cd Gen-AI-Home-Interior-Designer
+git clone https://github.com/Pilot2505/ATI_final.git
+cd Final
 ```
 
 ### 2. Setup Backend
@@ -58,7 +58,11 @@ poetry shell
 Create a `.env` file in the backend folder and add your Gemini API key:
 
 ```
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY={gemini_api_key}
+SERPAPI_API_KEY=serpapi_api_key
+
+SUPABASE_URL={supabase_api_url}
+SUPABASE_SERVICE_ROLE_KEY={supabase_service_role_key}
 ```
 
 Run the server:
