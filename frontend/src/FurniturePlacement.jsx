@@ -209,6 +209,36 @@ function FurniturePlacement({ isDarkMode }) {
     return `${type} - ${style} (${date})`;
   };
 
+  const handleSaveGeneratedRoom = async (imageDataUrl) => {
+    try {
+      const formData = new FormData();
+      formData.append("session_id", "furniture-test"); // Replace with actual session
+      formData.append("room_image", dataURLtoFile(imageDataUrl, "generated_room.png"));
+      formData.append("room_description", "Generated AI Room");
+
+      await axios.post("http://127.0.0.1:8000/api/rooms/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      toast.success("Generated room saved to library!");
+      fetchUserRooms(); // refresh user rooms
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save room");
+    }
+  };
+
+  // Helper function to convert data URL to File
+  const dataURLtoFile = (dataurl, filename) => {
+    const arr = dataurl.split(",");
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new File([u8arr], filename, { type: mime });
+  };
+
   return (
     <div style={{ padding: "2rem 1rem" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -323,8 +353,11 @@ function FurniturePlacement({ isDarkMode }) {
           <Card style={{ background: bgColor, borderColor }}>
             <img src={result.image} alt="Result" style={{ width: "100%", borderRadius: 12 }} />
             {result.text && <Text>{result.text}</Text>}
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 16, display: "flex", gap: 8  }}>
               <Button type="primary" onClick={handleNewTest}>Test Another Furniture</Button>
+              <Button type="default" onClick={() => handleSaveGeneratedRoom(result.image)}>
+                Save to Library
+              </Button>
             </div>
           </Card>
         )}

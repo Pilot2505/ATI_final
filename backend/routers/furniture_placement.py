@@ -239,20 +239,33 @@ async def place_furniture(
         room_metadata = {}
 
         if user_room_id:
-            room_row = supabase.table("user_rooms").select("*").eq("id", user_room_id).maybe_single().execute()
-            if not room_row.data or not room_row.data.get("image_base64"):
+            room_row = supabase.table("room_designs") \
+            .select("*") \
+            .eq("id", user_room_id) \
+            .maybe_single() \
+            .execute()
+            
+            if not room_row or not room_row.data or not room_row.data.get("generated_image_data"):
                 raise HTTPException(404, "User room not found")
-            room_image_bytes = base64.b64decode(room_row.data["image_base64"])
-            room_metadata = {}  # optional metadata
+            
+            # Decode the image
+            room_image_bytes = base64.b64decode(room_row.data["generated_image_data"])
+            room_metadata = room_row.data.get("design_metadata", {})
 
         elif design_id:
-            room_row = supabase.table("room_designs").select("*").eq("id", design_id).eq("session_id", session_id).maybe_single().execute()
-            if room_row.data and room_row.data.get("generated_image_data"):
-                room_image_bytes = base64.b64decode(room_row.data["generated_image_data"])
-                room_metadata = room_row.data.get("design_metadata", {})
-            else:
-                # Fallback: generate empty room
-                room_image_bytes = None
+            # Fetch the design by ID only
+            room_row = supabase.table("room_designs").select("*")\
+                .eq("id", design_id).maybe_single().execute()
+
+            if not room_row or not room_row.data:
+                raise HTTPException(404, "Design not found")
+
+            if not room_row.data.get("generated_image_data"):
+                raise HTTPException(404, "Design image not found")
+
+            # Decode the image
+            room_image_bytes = base64.b64decode(room_row.data["generated_image_data"])
+            room_metadata = room_row.data.get("design_metadata", {})
                 
         if not room_image_bytes:
             # Generate neutral empty room
