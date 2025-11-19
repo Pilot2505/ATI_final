@@ -173,13 +173,12 @@ return (
                   <div>
                     <Text style={{ color: textColor }}>Design Type</Text>
                     <Select
-                      placeholder="Interior or Exterior?"
+                      placeholder="Interior"
                       style={{ width: "100%", marginTop: 4 }}
                       value={designType}
                       onChange={setDesignType}
                     >
                       <Option value="interior">Interior</Option>
-                      <Option value="exterior">Exterior</Option>
                     </Select>
                   </div>
 
