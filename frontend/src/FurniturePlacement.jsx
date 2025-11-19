@@ -350,16 +350,18 @@ function FurniturePlacement({ isDarkMode }) {
             </div>
           </form>
         ) : (
-          <Card style={{ background: bgColor, borderColor }}>
-            <img src={result.image} alt="Result" style={{ width: "100%", borderRadius: 12 }} />
-            {result.text && <Text>{result.text}</Text>}
-            <div style={{ marginTop: 16, display: "flex", gap: 8  }}>
-              <Button type="primary" onClick={handleNewTest}>Test Another Furniture</Button>
-              <Button type="default" onClick={() => handleSaveGeneratedRoom(result.image)}>
-                Save to Library
-              </Button>
-            </div>
-          </Card>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Card style={{ background: bgColor, borderColor,width: "70%", }}>
+              <img src={result.image} alt="Result" style={{ width: "100%", borderRadius: 12 }} />
+              {result.text && <Text style={{display: "block", textAlign: "center"}}>{result.text}</Text>}
+              <div style={{ marginTop: 16, display: "flex", justifyContent: "center", gap: 8  }}>
+                <Button type="primary" onClick={handleNewTest}>Test Another Furniture</Button>
+                <Button type="default" onClick={() => handleSaveGeneratedRoom(result.image)}>
+                  Save to Library
+                </Button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
       <ToastContainer theme={isDarkMode ? "dark" : "light"} />

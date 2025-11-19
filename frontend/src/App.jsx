@@ -155,7 +155,7 @@ return (
                 children: (
                   <>
                     <Title level={2} style={{ color: textColor, textAlign: "center", marginBottom: "2rem" }}>
-                      AI Interior / Exterior Makeover
+                      AI Interior Makeover
                     </Title>
 
                     <form onSubmit={handleSubmit}>

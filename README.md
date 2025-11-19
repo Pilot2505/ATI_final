@@ -7,8 +7,8 @@ Perfect for real estate visualization, interior decorators, home remodeling insp
 
 ## 🚀 Features
 
-- Upload any **room or outdoor space image**
-- Choose **interior** or **exterior**, room type, style, and color preferences
+- Upload any **room image**
+- Choose **interior**, room type, style, and color preferences
 - Receive an **AI-generated redesign** of the space
 - Text description includes **style breakdown, design logic, and cost/time estimate**
 - Preserves spatial structure while changing layout/design
